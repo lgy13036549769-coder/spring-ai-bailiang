@@ -1,0 +1,2097 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI功能演示平台</title>
+  <!-- CDN引入Vue3、Axios、Font Awesome和Marked.js -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <!-- 页面样式 -->
+  <style>
+    /* 全局样式 */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 顶部导航栏 */
+    header {
+      flex-shrink: 0;
+      padding: 15px 20px;
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+    }
+
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .connection-status.connected {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .connection-status.disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .connected .status-dot {
+      background-color: #28a745;
+      box-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
+      animation: pulse 2s infinite;
+    }
+
+    .disconnected .status-dot {
+      background-color: #dc3545;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .btn-refresh {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-refresh:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-refresh:active {
+      transform: translateY(0);
+    }
+
+    .btn-refresh i {
+      transition: transform 0.3s ease;
+    }
+
+    .btn-refresh:hover i {
+      transform: rotate(180deg);
+    }
+
+    .btn-refresh:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    nav li {
+      flex: 1;
+    }
+
+    nav button {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      background: none;
+      font-size: 16px;
+      font-weight: 500;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    nav button:hover {
+      background-color: #f0f0f0;
+    }
+
+    nav button.active {
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    /* 主内容区 */
+    main {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 模块通用样式 */
+    .module {
+      background-color: #fff;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 20px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 知识库模块 */
+    .knowledge-content {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .search-container {
+      margin-bottom: 20px;
+      flex-shrink: 0;
+    }
+
+    .search-container input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    .documents-list {
+      max-height: none;
+      overflow-y: visible;
+    }
+
+    .document-item {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .document-item:hover {
+      background-color: #f9f9f9;
+    }
+
+    .document-item.selected {
+      background-color: #e3f2fd;
+    }
+
+    .document-item h3 {
+      margin-bottom: 5px;
+      color: #007bff;
+    }
+
+    .document-item .meta {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    .document-content {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+
+    /* 对话模块 */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 0;
+      padding: 20px;
+      border: none;
+      border-radius: 0;
+      background-color: #fafafa;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 80%;
+    }
+
+    .message.user {
+      background-color: #e3f2fd;
+      margin-left: auto;
+    }
+
+    .message.assistant {
+      background-color: #f5f5f5;
+    }
+
+    .message .meta {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    .input-container {
+      display: flex;
+      margin-bottom: 15px;
+    }
+
+    .input-container input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px 0 0 8px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    .input-container input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .input-container input:disabled {
+      background-color: #f5f5f5;
+      cursor: not-allowed;
+    }
+
+    .input-container button,
+    .input-container .btn-send {
+      padding: 12px 24px;
+      border: none;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border-radius: 0 8px 8px 0;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      font-weight: 500;
+    }
+
+    .input-container button:hover,
+    .input-container .btn-send:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .input-container button:active,
+    .input-container .btn-send:active {
+      transform: translateY(0);
+    }
+
+    /* 聊天输入区域 - 固定在底部 */
+    .chat-input-section {
+      flex-shrink: 0;
+      padding: 15px 20px;
+      background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+      border-top: 1px solid #e0e0e0;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+      z-index: 5;
+    }
+
+    /* 默认问题选项 */
+    .quick-questions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      justify-content: center;
+      padding: 0 10px;
+    }
+
+    .quick-question-btn {
+      padding: 6px 14px;
+      border: 1px solid #e0e0e0;
+      border-radius: 20px;
+      background-color: #fff;
+      color: #666;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .quick-question-btn:hover {
+      background-color: #667eea;
+      color: #fff;
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .quick-question-btn:active {
+      transform: translateY(0);
+    }
+
+    /* 聊天操作按钮容器 */
+    .chat-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 15px;
+    }
+
+    /* 通用按钮样式 */
+    .chat-actions button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chat-actions button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .chat-actions button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .chat-actions button i {
+      font-size: 16px;
+      transition: transform 0.3s ease;
+    }
+
+    .chat-actions button:hover i {
+      transform: scale(1.1);
+    }
+
+    /* 流式发送按钮 */
+    .btn-stream {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+
+    .btn-stream:hover {
+      background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+      box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .btn-stream:active {
+      transform: translateY(0);
+    }
+
+    /* 清空对话按钮 */
+    .btn-clear {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+      color: white;
+    }
+
+    .btn-clear:hover {
+      background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+      box-shadow: 0 4px 12px rgba(79, 172, 254, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .btn-clear:active {
+      transform: translateY(0);
+    }
+
+    /* 禁用状态 */
+    .chat-actions button:disabled,
+    .input-container button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .chat-actions button:disabled:hover::before {
+      width: 0;
+      height: 0;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      color: #888;
+      font-style: italic;
+    }
+
+    .loading::after {
+      content: '';
+      width: 20px;
+      height: 20px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #007bff;
+      border-radius: 50%;
+      margin-left: 10px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .stream-message {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      max-width: 80%;
+    }
+
+    /* Markdown 样式 */
+    .message p,
+    .stream-message p {
+      margin: 0;
+      line-height: 1.6;
+    }
+
+    .message h1, .message h2, .message h3, 
+    .message h4, .message h5, .message h6,
+    .stream-message h1, .stream-message h2, .stream-message h3,
+    .stream-message h4, .stream-message h5, .stream-message h6 {
+      margin-top: 16px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .message h1, .stream-message h1 { font-size: 1.8em; }
+    .message h2, .stream-message h2 { font-size: 1.5em; }
+    .message h3, .stream-message h3 { font-size: 1.3em; }
+    .message h4, .stream-message h4 { font-size: 1.1em; }
+
+    .message ul, .message ol,
+    .stream-message ul, .stream-message ol {
+      margin: 8px 0;
+      padding-left: 24px;
+    }
+
+    .message li, .stream-message li {
+      margin: 4px 0;
+    }
+
+    .message code, .stream-message code {
+      background-color: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    .message pre, .stream-message pre {
+      background-color: #f0f0f0;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .message pre code, .stream-message pre code {
+      background: none;
+      padding: 0;
+    }
+
+    .message blockquote, .stream-message blockquote {
+      border-left: 4px solid #ddd;
+      padding-left: 12px;
+      margin: 12px 0;
+      color: #666;
+    }
+
+    .message table, .stream-message table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+    }
+
+    .message th, .message td,
+    .stream-message th, .stream-message td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .message th, .stream-message th {
+      background-color: #f5f5f5;
+      font-weight: 600;
+    }
+
+    /* Agent协作模块 */
+    .agent-content {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+
+    .agent-input {
+      margin-bottom: 20px;
+      flex-shrink: 0;
+    }
+
+    .agent-input input {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .agent-input button {
+      padding: 10px 20px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .agent-input button:hover {
+      background-color: #0069d9;
+    }
+
+    .process-container {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+    }
+
+    .process-step {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .process-step::before {
+      content: '';
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #ddd;
+      margin-right: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .process-step.active::before {
+      background-color: #007bff;
+      content: '✓';
+    }
+
+    .process-step.completed::before {
+      background-color: #28a745;
+      content: '✓';
+    }
+
+    .results-container {
+      margin-top: 20px;
+    }
+
+    .agent-result {
+      margin-bottom: 20px;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #007bff;
+      background-color: #f9f9f9;
+    }
+
+    .agent-result h3 {
+      margin-bottom: 10px;
+      color: #007bff;
+    }
+
+    .agent-result .meta {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+
+    .references {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #eee;
+    }
+
+    .reference-item {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+
+    /* 高亮样式 */
+    mark {
+      background-color: #ffeb3b;
+      padding: 0 2px;
+    }
+
+    /* 管理按钮 */
+    .btn-manage {
+      background: linear-gradient(135deg, #6c757d, #495057);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-manage:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    /* 模态框样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      color: #007bff;
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 5px;
+    }
+
+    .btn-close:hover {
+      color: #333;
+    }
+
+    .modal-body {
+      padding: 20px;
+    }
+
+    /* 表单样式 */
+    .document-form {
+      margin-bottom: 30px;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+
+    .document-form h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .btn-primary {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-success {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-edit {
+      background: #ffc107;
+      color: #333;
+      border: none;
+      padding: 5px 15px;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+
+    .btn-delete {
+      background: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 15px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover,
+    .btn-success:hover,
+    .btn-secondary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    /* 管理文档列表 */
+    .manage-documents-list {
+      margin-top: 20px;
+    }
+
+    .manage-doc-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .manage-doc-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .manage-doc-info {
+      flex: 1;
+    }
+
+    .manage-doc-info strong {
+      font-size: 16px;
+      margin-right: 10px;
+    }
+
+    .category-tag {
+      background: #e9ecef;
+      color: #495057;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-right: 10px;
+    }
+
+    .manage-doc-info small {
+      color: #6c757d;
+      font-size: 12px;
+    }
+
+    .manage-doc-actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      nav ul {
+        flex-direction: column;
+      }
+      
+      .message {
+        max-width: 95%;
+      }
+
+      .chat-actions {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .chat-actions button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .header-container {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .connection-status,
+      .btn-refresh {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部导航栏 -->
+    <header>
+      <div class="header-container">
+        <nav style="flex: 1;">
+          <ul>
+            <li><button :class="{ active: activeModule === 'knowledge' }" @click="activeModule = 'knowledge'"><i class="fa fa-book mr-2"></i>知识库</button></li>
+            <li><button :class="{ active: activeModule === 'chat' }" @click="activeModule = 'chat'"><i class="fa fa-comments mr-2"></i>AI对话</button></li>
+            <li><button :class="{ active: activeModule === 'agent' }" @click="activeModule = 'agent'"><i class="fa fa-users mr-2"></i>多Agent协作</button></li>
+          </ul>
+        </nav>
+        <div class="connection-status" :class="apiState.isConnected ? 'connected' : 'disconnected'">
+          <span class="status-dot"></span>
+          <span>{{ apiState.isConnected ? '后端已连接' : '使用模拟数据' }}</span>
+        </div>
+        <button @click="checkBackendConnection" :disabled="apiState.checking" class="btn-refresh">
+          <i class="fa fa-refresh" :class="{ 'fa-spin': apiState.checking }"></i>
+          {{ apiState.checking ? '检查中...' : '刷新连接' }}
+        </button>
+      </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main>
+      <!-- 虚拟知识库模块 -->
+      <section v-show="activeModule === 'knowledge'" class="module">
+        <div style="text-align: center; margin-bottom: 20px; color: #666;">
+          <h2 style="margin-bottom: 5px;"><i class="fa fa-book mr-2"></i>虚拟知识库</h2>
+          <p class="text-gray-600 mb-4">内置企业文档数据，支持搜索和查看详情</p>
+          <button @click="openManageModal" class="btn-manage">
+            <i class="fa fa-cog"></i> 管理知识库
+          </button>
+        </div>
+        
+        <div class="search-container">
+          <input 
+            type="text" 
+            v-model="knowledgeState.searchQuery" 
+            placeholder="搜索知识库..." 
+            @input="debounceSearch"
+            @keyup.enter="searchKnowledgeBase"
+          >
+        </div>
+        
+        <div class="knowledge-content">
+          <div v-if="knowledgeState.loading" class="loading">正在搜索...</div>
+          
+          <div v-else class="documents-list">
+            <div 
+              v-for="doc in knowledgeState.searchResults" 
+              :key="doc.id"
+              class="document-item"
+              :class="{ selected: knowledgeState.selectedDocument && knowledgeState.selectedDocument.id === doc.id }"
+              @click="selectDocument(doc)"
+            >
+              <h3>{{ doc.title }}</h3>
+              <div class="meta">{{ doc.category }} | {{ formatDate(doc.createdAt) }}</div>
+              <p>{{ truncateContent(doc.content, 100) }}</p>
+            </div>
+            
+            <div v-if="knowledgeState.searchResults.length === 0" class="text-center text-gray-500 py-4">
+              没有找到相关文档
+            </div>
+          </div>
+          
+          <div v-if="knowledgeState.selectedDocument" class="document-content">
+            <h3>{{ knowledgeState.selectedDocument.title }}</h3>
+            <div class="meta">{{ knowledgeState.selectedDocument.category }} | {{ formatDate(knowledgeState.selectedDocument.createdAt) }}</div>
+            <p v-html="highlightKeywords(knowledgeState.selectedDocument.content, knowledgeState.searchQuery)"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- AI对话窗口模块 -->
+      <section v-show="activeModule === 'chat'" class="module">
+        <div class="chat-container" ref="chatContainer">
+          <div style="text-align: center; margin-bottom: 20px; color: #666;">
+            <h2 style="margin-bottom: 5px;"><i class="fa fa-comments"></i> AI对话</h2>
+            <p style="font-size: 14px;">与AI助手进行对话，支持流式响应</p>
+          </div>
+          
+          <div 
+            v-for="message in chatState.messages" 
+            :key="message.id"
+            class="message"
+            :class="message.role"
+          >
+            <div class="meta">{{ message.role === 'user' ? '你' : 'AI助手' }} | {{ formatTime(message.timestamp) }}</div>
+            <div v-html="renderMarkdown(message.content)"></div>
+          </div>
+          
+          <div v-if="chatState.streaming" class="stream-message">
+            <div class="meta">AI助手 | {{ formatTime(new Date()) }}</div>
+            <div v-html="renderMarkdown(chatState.streamMessage)"><span class="loading"></span></div>
+          </div>
+          
+          <div v-if="chatState.loading && !chatState.streaming" class="message assistant">
+            <div class="meta">AI助手 | {{ formatTime(new Date()) }}</div>
+            <p class="loading">正在思考...</p>
+          </div>
+        </div>
+        
+        <div class="chat-input-section">
+          <!-- 默认问题选项 -->
+          <div class="quick-questions" v-if="chatState.messages.length === 0">
+            <button 
+              v-for="question in chatState.quickQuestions" 
+              :key="question"
+              @click="sendQuickQuestion(question)"
+              class="quick-question-btn"
+            >
+              {{ question }}
+            </button>
+          </div>
+          
+          <div class="input-container">
+            <input 
+              type="text" 
+              v-model="chatState.inputMessage" 
+              placeholder="输入你的问题..." 
+              @keyup.enter="sendMessage"
+              :disabled="chatState.loading"
+            >
+            <button @click="sendMessage" :disabled="chatState.loading" class="btn-send">
+              <i class="fa fa-paper-plane"></i> 发送
+            </button>
+          </div>
+          
+          <div class="chat-actions">
+            <button @click="sendStreamMessage" :disabled="chatState.loading || !chatState.inputMessage.trim()" class="btn-stream">
+              <i class="fa fa-bolt"></i> 流式发送
+            </button>
+            <button @click="clearChat" class="btn-clear">
+              <i class="fa fa-trash"></i> 清空对话
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 多Agent协作演示模块 -->
+      <section v-show="activeModule === 'agent'" class="module">
+        <h2><i class="fa fa-users mr-2"></i>多Agent协作</h2>
+        <p class="text-gray-600 mb-4">问答Agent和总结Agent协作解决问题</p>
+        
+        <div class="agent-content">
+          <div class="agent-input">
+            <input 
+              type="text" 
+              v-model="agentState.query" 
+              placeholder="输入你的问题..." 
+              @keyup.enter="startCollaboration"
+              :disabled="agentState.loading"
+            >
+            <button @click="startCollaboration" :disabled="agentState.loading || !agentState.query.trim()">
+              <i class="fa fa-play-circle mr-2"></i>开始协作
+            </button>
+          </div>
+          
+          <div v-if="agentState.showProcess" class="process-container">
+            <h3>协作进度</h3>
+            <div 
+              v-for="(step, index) in agentState.processSteps" 
+              :key="index"
+              class="process-step"
+              :class="{ 
+                active: index === agentState.processStep,
+                completed: index < agentState.processStep
+              }"
+            >
+              {{ step }}
+            </div>
+          </div>
+          
+          <div v-if="agentState.qaResult" class="results-container">
+            <div class="agent-result">
+              <h3><i class="fa fa-comment mr-2"></i>{{ agentState.qaResult.agentName }}</h3>
+              <div class="meta">处理时间: {{ agentState.qaResult.processingTime }}ms</div>
+              <div v-html="renderMarkdown(agentState.qaResult.content)"></div>
+              
+              <div v-if="agentState.qaResult.references && agentState.qaResult.references.length > 0" class="references">
+                <h4 class="text-sm font-bold mb-2">参考文档:</h4>
+                <div 
+                  v-for="(ref, index) in agentState.qaResult.references" 
+                  :key="index"
+                  class="reference-item"
+                >
+                  <strong>{{ ref.title }}</strong>: {{ truncateContent(ref.content, 100) }}
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="agentState.summaryResult" class="agent-result">
+              <h3><i class="fa fa-file-text mr-2"></i>{{ agentState.summaryResult.agentName }}</h3>
+              <div class="meta">处理时间: {{ agentState.summaryResult.processingTime }}ms</div>
+              <div v-html="renderMarkdown(agentState.summaryResult.content)"></div>
+              
+              <div v-if="agentState.summaryResult.references && agentState.summaryResult.references.length > 0" class="references">
+                <h4 class="text-sm font-bold mb-2">参考文档:</h4>
+                <div 
+                  v-for="(ref, index) in agentState.summaryResult.references" 
+                  :key="index"
+                  class="reference-item"
+                >
+                  <strong>{{ ref.title }}</strong>: {{ truncateContent(ref.content, 100) }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="mt-4">
+              <button @click="clearAgentResults" class="bg-gray-500 text-white px-4 py-2 rounded">
+                <i class="fa fa-refresh mr-2"></i>重新开始
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 知识库管理模态框 -->
+    <div v-if="showManageModal" class="modal-overlay" @click.self="showManageModal = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2><i class="fa fa-cog mr-2"></i>知识库管理</h2>
+          <button @click="showManageModal = false" class="btn-close">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+        
+        <div class="modal-body">
+          <!-- 操作按钮 -->
+          <div class="mb-4">
+            <button @click="showAddForm = true; editingDoc = null" class="btn-primary">
+              <i class="fa fa-plus"></i> 添加文档
+            </button>
+          </div>
+          
+          <!-- 添加/编辑表单 -->
+          <div v-if="showAddForm" class="document-form">
+            <h3>{{ editingDoc ? '编辑文档' : '添加新文档' }}</h3>
+            
+            <div class="form-group">
+              <label>标题:</label>
+              <input type="text" v-model="formData.title" placeholder="输入文档标题">
+            </div>
+            
+            <div class="form-group">
+              <label>分类:</label>
+              <select v-model="formData.category">
+                <option value="公司概况">公司概况</option>
+                <option value="团队介绍">团队介绍</option>
+                <option value="产品服务">产品服务</option>
+                <option value="技术研发">技术研发</option>
+                <option value="合作关系">合作关系</option>
+                <option value="发展战略">发展战略</option>
+                <option value="人才招聘">人才招聘</option>
+                <option value="其他">其他</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>内容 (支持Markdown):</label>
+              <textarea v-model="formData.content" rows="10" placeholder="输入文档内容..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+              <button @click="saveDocument" class="btn-success">
+                <i class="fa fa-save"></i> {{ editingDoc ? '更新' : '保存' }}
+              </button>
+              <button @click="cancelForm" class="btn-secondary">
+                <i class="fa fa-times"></i> 取消
+              </button>
+            </div>
+          </div>
+          
+          <!-- 文档列表 -->
+          <div class="document-list-manage">
+            <h3>文档列表 ({{ manageState.documents.length }})</h3>
+            
+            <div v-if="manageState.loading" class="loading">加载中...</div>
+            
+            <div v-else class="manage-documents-list">
+              <div 
+                v-for="doc in manageState.documents" 
+                :key="doc.id"
+                class="manage-doc-item"
+              >
+                <div class="manage-doc-info">
+                  <strong>{{ doc.title }}</strong>
+                  <span class="category-tag">{{ doc.category }}</span>
+                  <small>{{ formatDate(doc.createdAt) }}</small>
+                </div>
+                <div class="manage-doc-actions">
+                  <button @click="editDocument(doc)" class="btn-edit">
+                    <i class="fa fa-edit"></i> 编辑
+                  </button>
+                  <button @click="deleteDocument(doc.id)" class="btn-delete">
+                    <i class="fa fa-trash"></i> 删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vue3应用脚本 -->
+  <script>
+    const { createApp, reactive, ref, onMounted, nextTick } = Vue;
+    
+    createApp({
+      setup() {
+        // API状态
+        const apiState = reactive({
+          isConnected: false,
+          checking: false,
+          baseURL: 'http://localhost:8080/api'
+        });
+        
+        // 当前激活的模块
+        const activeModule = ref('knowledge');
+        const chatContainer = ref(null);
+        
+        // 防抖计时器
+        let searchTimer = null;
+        
+        // 知识库数据和方法
+        const knowledgeState = reactive({
+          documents: [],
+          searchQuery: '',
+          searchResults: [],
+          selectedDocument: null,
+          loading: false
+        });
+        
+        // 对话数据和方法
+        const chatState = reactive({
+          messages: [],
+          inputMessage: '',
+          loading: false,
+          streaming: false,
+          streamMessage: '',
+          quickQuestions: [
+            '你好',
+            '公司成立时间',
+            '公司业务',
+            '技术团队',
+            '发展历程',
+            '企业文化'
+          ]
+        });
+        
+        // Agent协作数据和方法
+        const agentState = reactive({
+          query: '',
+          loading: false,
+          qaResult: null,
+          summaryResult: null,
+          showProcess: false,
+          processStep: 0,
+          processSteps: [
+            '正在检索相关文档...',
+            '问答Agent正在分析问题...',
+            '问答Agent正在生成回答...',
+            '总结Agent正在准备总结...',
+            '总结Agent正在生成总结...',
+            '协作完成'
+          ]
+        });
+        
+        // 知识库管理状态
+        const showManageModal = ref(false);
+        const showAddForm = ref(false);
+        const editingDoc = ref(null);
+        const formData = reactive({
+          title: '',
+          category: '公司概况',
+          content: ''
+        });
+        
+        const manageState = reactive({
+          documents: [],
+          loading: false
+        });
+        
+        // 监听模态框打开,加载文档
+        const openManageModal = () => {
+          showManageModal.value = true;
+          loadManageDocuments();
+        };
+        
+        // 检查后端连接
+        const checkBackendConnection = async () => {
+          apiState.checking = true;
+          try {
+            // 尝试调用一个简单的接口来测试连接
+            const response = await axios.post(`${apiState.baseURL}/rag/search`, {
+              query: 'test',
+              topK: 1
+            }, {
+              timeout: 3000
+            });
+            
+            // 如果成功，说明后端可用
+            apiState.isConnected = true;
+            console.log('后端连接成功');
+          } catch (error) {
+            console.warn('后端连接失败，将使用模拟数据:', error.message);
+            apiState.isConnected = false;
+          } finally {
+            apiState.checking = false;
+          }
+        };
+        
+        // 初始化加载知识库文档
+        const loadKnowledgeBase = async () => {
+          knowledgeState.loading = true;
+          try {
+            // 尝试调用后端接口
+            const response = await axios.post(`${apiState.baseURL}/rag/search`, {
+              query: '',
+              topK: 10
+            }, {
+              timeout: 5000
+            });
+            
+            if (response.data && response.data.code === 200) {
+              apiState.isConnected = true;
+              knowledgeState.documents = response.data.data.documents || [];
+              knowledgeState.searchResults = [...knowledgeState.documents];
+              console.log('从后端加载知识库成功');
+            } else {
+              throw new Error('响应格式错误');
+            }
+          } catch (error) {
+            console.warn('后端接口调用失败，使用模拟数据:', error.message);
+            apiState.isConnected = false;
+            // 使用模拟数据
+            knowledgeState.documents = getMockDocuments();
+            knowledgeState.searchResults = [...knowledgeState.documents];
+          } finally {
+            knowledgeState.loading = false;
+          }
+        };
+        
+        // 搜索知识库
+        const searchKnowledgeBase = async () => {
+          if (!knowledgeState.searchQuery.trim()) {
+            knowledgeState.searchResults = [...knowledgeState.documents];
+            return;
+          }
+          
+          knowledgeState.loading = true;
+          try {
+            // 尝试调用后端接口
+            const response = await axios.post(`${apiState.baseURL}/rag/search`, {
+              query: knowledgeState.searchQuery,
+              topK: 10
+            }, {
+              timeout: 5000
+            });
+            
+            if (response.data && response.data.code === 200) {
+              apiState.isConnected = true;
+              knowledgeState.searchResults = response.data.data.documents || [];
+            } else {
+              throw new Error('响应格式错误');
+            }
+          } catch (error) {
+            console.warn('后端搜索失败，使用前端过滤:', error.message);
+            apiState.isConnected = false;
+            // 前端过滤模拟搜索
+            const query = knowledgeState.searchQuery.toLowerCase();
+            knowledgeState.searchResults = knowledgeState.documents.filter(doc => 
+              doc.title.toLowerCase().includes(query) || 
+              doc.content.toLowerCase().includes(query)
+            );
+          } finally {
+            knowledgeState.loading = false;
+          }
+        };
+        
+        // 防抖搜索
+        const debounceSearch = () => {
+          if (searchTimer) {
+            clearTimeout(searchTimer);
+          }
+          searchTimer = setTimeout(() => {
+            searchKnowledgeBase();
+          }, 300);
+        };
+        
+        // 选择文档
+        const selectDocument = (doc) => {
+          knowledgeState.selectedDocument = doc;
+        };
+        
+        // 高亮关键词
+        const highlightKeywords = (text, keywords) => {
+          if (!keywords) return text;
+          
+          const regex = new RegExp(`(${keywords.split(' ').filter(k => k).join('|')})`, 'gi');
+          return text.replace(regex, '<mark>$1</mark>');
+        };
+        
+        // 发送快速问题
+        const sendQuickQuestion = (question) => {
+          chatState.inputMessage = question;
+          sendMessage();
+        };
+        
+        // 发送消息
+        const sendMessage = async () => {
+          if (!chatState.inputMessage.trim()) return;
+          
+          // 添加用户消息
+          const userMessage = {
+            id: Date.now(),
+            role: 'user',
+            content: chatState.inputMessage,
+            timestamp: new Date()
+          };
+          chatState.messages.push(userMessage);
+          
+          // 清空输入框
+          const tempMessage = chatState.inputMessage;
+          chatState.inputMessage = '';
+          
+          // 显示AI正在输入
+          chatState.loading = true;
+          
+          try {
+            // 第一步：先进行RAG检索
+            let ragContext = null;
+            console.log('[RAG] 开始检索:', tempMessage);
+            try {
+              const ragStartTime = Date.now();
+              const ragResponse = await axios.post(`${apiState.baseURL}/rag/search`, {
+                query: tempMessage,
+                topK: 3
+              }, {
+                timeout: 5000  // 增加到5秒
+              });
+              
+              const ragTime = Date.now() - ragStartTime;
+              console.log('[RAG] 检索完成，耗时:', ragTime, 'ms');
+              console.log('[RAG] 响应:', ragResponse.data);
+              
+              if (ragResponse.data && ragResponse.data.code === 200) {
+                const documents = ragResponse.data.data.documents || [];
+                console.log('[RAG] 文档数量:', documents.length);
+                if (documents.length > 0) {
+                  ragContext = {
+                    documents: documents,
+                    useContext: true
+                  };
+                  console.log('[RAG] ✅ 成功设置RAG上下文');
+                  console.log('[RAG] 文档标题:', documents.map(d => d.title));
+                } else {
+                  console.warn('[RAG] ⚠️ 未找到相关文档');
+                }
+              } else {
+                console.warn('[RAG] ⚠️ 响应格式错误:', ragResponse.data);
+              }
+            } catch (ragError) {
+              console.error('[RAG] ❌ 检索失败:', ragError.message);
+              console.warn('[RAG] 将直接调用AI，不使用RAG');
+            }
+            
+            console.log('[AI] 准备调用AI接口, ragContext:', ragContext ? '有' : '无');
+            
+            // 第二步：调用后端AI对话接口（带RAG上下文）
+            const aiStartTime = Date.now();
+            const response = await axios.post(`${apiState.baseURL}/ai/chat`, {
+              messages: [
+                {
+                  role: 'user',
+                  content: tempMessage
+                }
+              ],
+              ragContext: ragContext,  // 确保传递
+              stream: false
+            }, {
+              timeout: 15000
+            });
+            
+            const aiTime = Date.now() - aiStartTime;
+            console.log('[AI] 响应完成，耗时:', aiTime, 'ms');
+            
+            if (response.data && response.data.code === 200) {
+              apiState.isConnected = true;
+              // 添加AI回复
+              const aiMessage = {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: response.data.data.choices[0].message.content,
+                timestamp: new Date()
+              };
+              chatState.messages.push(aiMessage);
+            } else {
+              throw new Error('响应格式错误');
+            }
+          } catch (error) {
+            console.warn('后端AI对话失败，使用模拟数据:', error.message);
+            apiState.isConnected = false;
+            // 使用模拟数据
+            const mockResponse = getMockAIResponse(tempMessage);
+            const aiMessage = {
+              id: Date.now() + 1,
+              role: 'assistant',
+              content: mockResponse,
+              timestamp: new Date()
+            };
+            chatState.messages.push(aiMessage);
+          } finally {
+            chatState.loading = false;
+            // 滚动到底部
+            scrollToBottom();
+          }
+        };
+        
+        // 流式发送消息
+        const sendStreamMessage = async () => {
+          if (!chatState.inputMessage.trim()) return;
+          
+          // 添加用户消息
+          const userMessage = {
+            id: Date.now(),
+            role: 'user',
+            content: chatState.inputMessage,
+            timestamp: new Date()
+          };
+          chatState.messages.push(userMessage);
+          
+          // 清空输入框
+          const tempMessage = chatState.inputMessage;
+          chatState.inputMessage = '';
+          
+          // 显示AI正在输入
+          chatState.loading = true;
+          chatState.streaming = true;
+          chatState.streamMessage = '';
+          
+          try {
+            // 尝试调用后端流式对话接口
+            const response = await axios.post(`${apiState.baseURL}/ai/chat/stream`, {
+              messages: [
+                {
+                  role: 'user',
+                  content: tempMessage
+                }
+              ],
+              stream: true
+            }, {
+              timeout: 10000
+            });
+            
+            // 处理SSE流式响应
+            apiState.isConnected = true;
+            const reader = response.data.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedContent = '';
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.substring(6);
+                  if (data === '[DONE]') {
+                    continue;
+                  }
+                  
+                  try {
+                    const parsed = JSON.parse(data);
+                    if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+                      const content = parsed.choices[0].delta.content || '';
+                      accumulatedContent += content;
+                      chatState.streamMessage = accumulatedContent;
+                    }
+                  } catch (e) {
+                    // 忽略解析错误
+                  }
+                }
+              }
+            }
+            
+            // 添加完整的AI回复
+            const aiMessage = {
+              id: Date.now() + 1,
+              role: 'assistant',
+              content: accumulatedContent,
+              timestamp: new Date()
+            };
+            chatState.messages.push(aiMessage);
+            
+            // 重置状态
+            chatState.streaming = false;
+            chatState.streamMessage = '';
+          } catch (error) {
+            console.warn('后端流式对话失败，使用模拟流式效果:', error.message);
+            apiState.isConnected = false;
+            chatState.streaming = false;
+            chatState.streamMessage = '';
+            
+            // 使用模拟数据并展示流式效果
+            const mockResponse = getMockAIResponse(tempMessage);
+            const chars = mockResponse.split('');
+            
+            // 逐字显示
+            let i = 0;
+            chatState.streaming = true;
+            const interval = setInterval(() => {
+              if (i < chars.length) {
+                chatState.streamMessage += chars[i];
+                i++;
+              } else {
+                clearInterval(interval);
+                
+                // 添加完整的AI回复
+                const aiMessage = {
+                  id: Date.now() + 1,
+                  role: 'assistant',
+                  content: mockResponse,
+                  timestamp: new Date()
+                };
+                chatState.messages.push(aiMessage);
+                
+                // 重置状态
+                chatState.streaming = false;
+                chatState.streamMessage = '';
+              }
+            }, 50);
+          } finally {
+            chatState.loading = false;
+            // 滚动到底部
+            scrollToBottom();
+          }
+        };
+        
+        // 滚动到底部
+        const scrollToBottom = () => {
+          nextTick(() => {
+            if (chatContainer.value) {
+              chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+            }
+          });
+        };
+        
+        // 渲染Markdown
+        const renderMarkdown = (content) => {
+          if (!content) return '';
+          try {
+            return marked.parse(content);
+          } catch (e) {
+            console.error('Markdown解析失败:', e);
+            return content;
+          }
+        };
+        
+        // 清空对话
+        const clearChat = () => {
+          chatState.messages = [];
+        };
+        
+        // 开始多Agent协作
+        const startCollaboration = async () => {
+          if (!agentState.query.trim()) return;
+          
+          // 重置状态
+          agentState.loading = true;
+          agentState.qaResult = null;
+          agentState.summaryResult = null;
+          agentState.showProcess = true;
+          agentState.processStep = 0;
+          
+          // 模拟进度更新
+          const processInterval = setInterval(() => {
+            agentState.processStep++;
+            if (agentState.processStep >= agentState.processSteps.length - 1) {
+              clearInterval(processInterval);
+            }
+          }, 1000);
+          
+          try {
+            // 尝试调用后端多Agent协作接口
+            const response = await axios.post(`${apiState.baseURL}/agent/collaborate`, {
+              query: agentState.query,
+              config: {
+                useRAG: true,
+                topK: 3,
+                needSummary: true
+              }
+            }, {
+              timeout: 15000
+            });
+            
+            if (response.data && response.data.code === 200) {
+              apiState.isConnected = true;
+              // 更新结果
+              agentState.qaResult = response.data.data.qaResult;
+              agentState.summaryResult = response.data.data.summaryResult;
+            } else {
+              throw new Error('响应格式错误');
+            }
+          } catch (error) {
+            console.warn('后端多Agent协作失败，使用模拟数据:', error.message);
+            apiState.isConnected = false;
+            // 使用模拟数据
+            const mockResponse = getMockAgentResponse(agentState.query);
+            agentState.qaResult = mockResponse.qaResult;
+            agentState.summaryResult = mockResponse.summaryResult;
+          } finally {
+            // 完成进度
+            clearInterval(processInterval);
+            agentState.processStep = agentState.processSteps.length - 1;
+            agentState.loading = false;
+          }
+        };
+        
+        // 清空Agent结果
+        const clearAgentResults = () => {
+          agentState.qaResult = null;
+          agentState.summaryResult = null;
+          agentState.showProcess = false;
+          agentState.processStep = 0;
+        };
+        
+        // ========== 知识库管理功能 ==========
+        
+        // 加载管理文档列表
+        const loadManageDocuments = async () => {
+          manageState.loading = true;
+          try {
+            const response = await axios.get(`${apiState.baseURL}/knowledge/documents`, {
+              timeout: 5000
+            });
+            
+            if (response.data && response.data.code === 200) {
+              manageState.documents = response.data.data || [];
+              console.log('加载管理文档成功:', manageState.documents.length);
+            }
+          } catch (error) {
+            console.error('加载文档失败:', error.message);
+            alert('加载文档失败，请检查后端连接');
+          } finally {
+            manageState.loading = false;
+          }
+        };
+        
+        // 保存文档(新增或更新)
+        const saveDocument = async () => {
+          if (!formData.title.trim() || !formData.content.trim()) {
+            alert('标题和内容不能为空');
+            return;
+          }
+          
+          try {
+            let response;
+            if (editingDoc.value) {
+              // 更新
+              response = await axios.put(
+                `${apiState.baseURL}/knowledge/documents/${editingDoc.value.id}`,
+                {
+                  title: formData.title,
+                  category: formData.category,
+                  content: formData.content
+                },
+                { timeout: 5000 }
+              );
+            } else {
+              // 新增
+              response = await axios.post(
+                `${apiState.baseURL}/knowledge/documents`,
+                {
+                  title: formData.title,
+                  category: formData.category,
+                  content: formData.content
+                },
+                { timeout: 5000 }
+              );
+            }
+            
+            if (response.data && response.data.code === 200) {
+              alert(editingDoc.value ? '更新成功' : '添加成功');
+              cancelForm();
+              loadManageDocuments();
+              // 刷新知识库显示
+              loadKnowledgeBase();
+            }
+          } catch (error) {
+            console.error('保存失败:', error);
+            alert('保存失败: ' + (error.response?.data?.message || error.message));
+          }
+        };
+        
+        // 编辑文档
+        const editDocument = (doc) => {
+          editingDoc.value = doc;
+          formData.title = doc.title;
+          formData.category = doc.category;
+          formData.content = doc.content;
+          showAddForm.value = true;
+        };
+        
+        // 删除文档
+        const deleteDocument = async (id) => {
+          if (!confirm('确定要删除这个文档吗？')) return;
+          
+          try {
+            const response = await axios.delete(
+              `${apiState.baseURL}/knowledge/documents/${id}`,
+              { timeout: 5000 }
+            );
+            
+            if (response.data && response.data.code === 200) {
+              alert('删除成功');
+              loadManageDocuments();
+              loadKnowledgeBase();
+            }
+          } catch (error) {
+            console.error('删除失败:', error);
+            alert('删除失败: ' + (error.response?.data?.message || error.message));
+          }
+        };
+        
+        // 取消表单
+        const cancelForm = () => {
+          showAddForm.value = false;
+          editingDoc.value = null;
+          formData.title = '';
+          formData.category = '公司概况';
+          formData.content = '';
+        };
+        
+        // 格式化日期
+        const formatDate = (dateString) => {
+          const date = new Date(dateString);
+          return date.toLocaleDateString('zh-CN');
+        };
+        
+        // 格式化时间
+        const formatTime = (date) => {
+          return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        };
+        
+        // 截断内容
+        const truncateContent = (content, maxLength) => {
+          if (content.length <= maxLength) return content;
+          return content.substring(0, maxLength) + '...';
+        };
+        
+        // 模拟文档数据
+        const getMockDocuments = () => {
+          return [
+            {
+              id: '1',
+              title: '公司简介',
+              content: '我们是一家专注于人工智能技术研发的高科技企业，成立于2018年，总部位于北京。公司致力于为客户提供先进的AI解决方案，包括自然语言处理、计算机视觉和机器学习等领域的技术服务。',
+              category: '公司概况',
+              createdAt: '2023-01-01T10:00:00'
+            },
+            {
+              id: '2',
+              title: '产品介绍',
+              content: '我们的主要产品包括智能客服系统、图像识别平台和数据分析工具。智能客服系统采用先进的自然语言处理技术，能够理解并回应用户的各种问题；图像识别平台可用于物体检测、人脸识别和场景分析；数据分析工具则帮助企业从海量数据中挖掘价值。',
+              category: '产品服务',
+              createdAt: '2023-01-02T10:00:00'
+            },
+            {
+              id: '3',
+              title: '技术团队',
+              content: '公司拥有一支由顶尖AI专家组成的技术团队，其中包括5名博士和10名硕士。团队成员来自国内外知名高校和研究机构，在AI领域拥有丰富的研发经验。我们的首席技术官曾在国际知名AI实验室工作多年，发表过多篇高水平学术论文。',
+              category: '团队介绍',
+              createdAt: '2023-01-03T10:00:00'
+            },
+            {
+              id: '4',
+              title: '发展历程',
+              content: '2018年，公司在北京成立；2019年，发布第一款智能客服产品；2020年，获得A轮融资1000万元；2021年，产品覆盖金融、电商、医疗等多个行业；2022年，获得B轮融资5000万元；2023年，公司员工规模扩大到100人，年营收突破1亿元。',
+              category: '公司概况',
+              createdAt: '2023-01-04T10:00:00'
+            },
+            {
+              id: '5',
+              title: '客户案例',
+              content: '我们的客户包括多家Fortune 500强企业。在金融行业，帮助某大型银行提升了客服效率30%；在电商领域，为某知名平台开发了智能推荐系统，提升销售额20%；在医疗行业，协助某三甲医院开发了医学影像辅助诊断系统，提高诊断准确率15%。',
+              category: '产品服务',
+              createdAt: '2023-01-05T10:00:00'
+            },
+            {
+              id: '6',
+              title: '企业文化',
+              content: '我们秉承"创新、协作、卓越"的企业文化。创新是我们的核心驱动力，鼓励员工不断探索新技术和新方法；协作是我们的工作方式，强调团队合作和知识共享；卓越是我们的目标，追求产品和服务的极致体验。',
+              category: '公司概况',
+              createdAt: '2023-01-06T10:00:00'
+            },
+            {
+              id: '7',
+              title: '技术优势',
+              content: '公司拥有多项自主研发的AI核心技术，包括大规模预训练模型、多模态融合算法和实时推理引擎。我们的技术优势在于能够将复杂的AI算法转化为易用的产品和服务，帮助客户解决实际业务问题。',
+              category: '技术研发',
+              createdAt: '2023-01-07T10:00:00'
+            },
+            {
+              id: '8',
+              title: '合作伙伴',
+              content: '我们与多家知名企业和研究机构建立了战略合作关系，包括国内顶尖高校的AI实验室、国际知名的云计算平台和行业领先的企业客户。这些合作帮助我们不断提升技术实力和产品竞争力。',
+              category: '合作关系',
+              createdAt: '2023-01-08T10:00:00'
+            },
+            {
+              id: '9',
+              title: '未来规划',
+              content: '未来三年，公司计划进一步扩大技术团队规模，加强在多模态AI和行业大模型领域的研发投入。我们将重点发展垂直行业解决方案，特别是在金融、医疗和智能制造领域。同时，我们也将积极探索国际市场，寻求全球化发展机会。',
+              category: '发展战略',
+              createdAt: '2023-01-09T10:00:00'
+            },
+            {
+              id: '10',
+              title: '加入我们',
+              content: '我们欢迎热爱AI技术、富有创新精神的人才加入。公司提供具有竞争力的薪资待遇和良好的工作环境，包括弹性工作制、定期技术分享会和持续学习机会。我们相信，优秀的人才是公司最宝贵的资产。',
+              category: '人才招聘',
+              createdAt: '2023-01-10T10:00:00'
+            }
+          ];
+        };
+        
+        // 模拟AI回复
+        const getMockAIResponse = (message) => {
+          const responses = {
+            '你好': '你好！我是一个AI助手，可以帮助你解答问题、提供信息或者进行交流。请问有什么我可以帮助你的吗？',
+            '你是谁': '我是一个基于人工智能技术的助手，可以帮助你解答问题、提供信息和进行各种对话。我由开发者使用Spring Boot和AI技术构建，旨在为用户提供智能化的服务。',
+            '公司成立时间': '根据文档内容，我们公司成立于2018年，是一家专注于人工智能技术研发的高科技企业，总部位于北京。',
+            '公司业务': '根据文档内容，公司的主营业务包括人工智能技术研发，涵盖自然语言处理、计算机视觉和机器学习等领域。主要产品包括智能客服系统、图像识别平台和数据分析工具。',
+            '公司团队': '根据文档内容，公司拥有一支由顶尖AI专家组成的技术团队，其中包括5名博士和10名硕士。团队成员来自国内外知名高校和研究机构，在AI领域拥有丰富的研发经验。',
+            '公司发展': '根据文档内容，公司2018年在北京成立，2019年发布第一款智能客服产品，2020年获得A轮融资1000万元，2021年产品覆盖多个行业，2022年获得B轮融资5000万元，2023年员工规模扩大到100人，年营收突破1亿元。',
+            '公司客户': '根据文档内容，我们的客户包括多家Fortune 500强企业。在金融行业，帮助某大型银行提升了客服效率30%；在电商领域，为某知名平台开发了智能推荐系统，提升销售额20%；在医疗行业，协助某三甲医院开发了医学影像辅助诊断系统，提高诊断准确率15%。',
+            '公司文化': '根据文档内容，公司秉承"创新、协作、卓越"的企业文化。创新是核心驱动力，协作是工作方式，卓越是目标。',
+            '公司技术': '根据文档内容，公司拥有多项自主研发的AI核心技术，包括大规模预训练模型、多模态融合算法和实时推理引擎。技术优势在于能够将复杂的AI算法转化为易用的产品和服务。',
+            '公司未来': '根据文档内容，未来三年，公司计划进一步扩大技术团队规模，加强在多模态AI和行业大模型领域的研发投入。将重点发展垂直行业解决方案，特别是在金融、医疗和智能制造领域。'
+          };
+          
+          // 查找匹配的回复
+          for (const [key, value] of Object.entries(responses)) {
+            if (message.includes(key)) {
+              return value;
+            }
+          }
+          
+          // 默认回复
+          return '感谢你的提问！这是一个模拟的AI响应。在实际应用中，这里会调用真实的AI API来生成更准确、更有意义的回答。你可以尝试问我一些关于公司的问题，比如公司成立时间、主营业务、技术团队等。';
+        };
+        
+        // 模拟多Agent协作结果
+        const getMockAgentResponse = (query) => {
+          return {
+            qaResult: {
+              agentName: '问答助手',
+              content: `这是问答助手对"${query}"的回答。根据检索到的相关文档，我提供以下信息：\n\n我们公司是一家专注于人工智能技术研发的高科技企业，成立于2018年，总部位于北京。公司的主营业务包括人工智能技术研发，涵盖自然语言处理、计算机视觉和机器学习等领域。我们拥有一支由顶尖AI专家组成的技术团队，其中包括5名博士和10名硕士。`,
+              processingTime: 1234,
+              references: [
+                {
+                  id: '1',
+                  title: '公司简介',
+                  content: '我们是一家专注于人工智能技术研发的高科技企业，成立于2018年，总部位于北京。'
+                },
+                {
+                  id: '2',
+                  title: '产品介绍',
+                  content: '我们的主要产品包括智能客服系统、图像识别平台和数据分析工具。'
+                }
+              ]
+            },
+            summaryResult: {
+              agentName: '总结助手',
+              content: `针对"${query}"的问题，我总结如下：\n\n公司是一家2018年成立的AI技术研发企业，总部在北京，专注于自然语言处理、计算机视觉和机器学习领域。公司拥有一支高素质的技术团队，包括5名博士和10名硕士，为客户提供智能客服、图像识别和数据分析等AI解决方案。`,
+              processingTime: 567,
+              references: [
+                {
+                  id: '1',
+                  title: '公司简介',
+                  content: '我们是一家专注于人工智能技术研发的高科技企业，成立于2018年，总部位于北京。'
+                },
+                {
+                  id: '2',
+                  title: '产品介绍',
+                  content: '我们的主要产品包括智能客服系统、图像识别平台和数据分析工具。'
+                }
+              ]
+            }
+          };
+        };
+        
+        // 组件挂载时检查连接并加载知识库
+        onMounted(() => {
+          checkBackendConnection();
+          loadKnowledgeBase();
+        });
+        
+        return {
+          activeModule,
+          chatContainer,
+          apiState,
+          knowledgeState,
+          chatState,
+          agentState,
+          showManageModal,
+          showAddForm,
+          editingDoc,
+          formData,
+          manageState,
+          openManageModal,
+          checkBackendConnection,
+          debounceSearch,
+          searchKnowledgeBase,
+          selectDocument,
+          highlightKeywords,
+          sendQuickQuestion,
+          sendMessage,
+          sendStreamMessage,
+          clearChat,
+          startCollaboration,
+          clearAgentResults,
+          loadManageDocuments,
+          saveDocument,
+          editDocument,
+          deleteDocument,
+          cancelForm,
+          formatDate,
+          formatTime,
+          truncateContent,
+          renderMarkdown
+        };
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>
